@@ -4,15 +4,20 @@
 
 // include necessary libraries
 #include <ESP8266WiFi.h>       // For the WiFi Sniffer
+#include <Adafruit_SSD1306.h>  // For the OLED display
 
 // include ESP8266 Non-OS SDK functions
 extern "C" {
 #include "user_interface.h"
 }
 
+Adafruit_SSD1306 display(-1);
+
 // ===== SETTINGS ===== //
-#define BUZZER 5           /* Buzzer pin */
+#define BUZZER 10           /* Buzzer pin */
 #define SPEED 1.5          /* Song speed, the bigger the number the slower the song */
+#define LED 2              /* LED pin (2=built-in LED) */
+#define LED_INVERT true    /* Invert HIGH/LOW for LED */
 #define SERIAL_BAUD 115200 /* Baudrate for serial communication */
 #define CH_TIME 140        /* Scan time (in ms) per channel */
 #define PKT_RATE 5         /* Min. packets before it gets recognized as an attack */
@@ -173,6 +178,7 @@ void sniffer(uint8_t *buf, uint16_t len) {
 
 // ===== Attack detection functions ===== //
 void attack_started() {
+  digitalWrite(LED, !LED_INVERT); // turn LED on
   song_playing = true;
   note_index = 0;
   note_time = duration[note_index] * SPEED;
@@ -180,6 +186,7 @@ void attack_started() {
 }
 
 void attack_stopped() {
+  digitalWrite(LED, LED_INVERT); // turn LED off
   song_playing = false;
   noTone(BUZZER); // Stop playing
   Serial.println("ATTACK STOPPED");
@@ -190,6 +197,18 @@ void setup() {
   Serial.begin(SERIAL_BAUD); // Start serial communication
 
   pinMode(BUZZER, OUTPUT); // Init buzzer pin
+  pinMode(LED, OUTPUT); // Enable LED pin
+  digitalWrite(LED, LED_INVERT);
+
+  // by default, we'll generate the high voltage from the 3.3v line internally! (neat!)
+  display.begin(SSD1306_SWITCHCAPVCC, 0x3D);  // initialize with the I2C addr 0x3D (for the 128x64)
+  display.clearDisplay();
+
+  // text display tests
+  display.setTextSize(1);
+  display.setTextColor(WHITE);
+  display.setCursor(0,0);
+  display.println("Initializing WiFi");
 
   WiFi.disconnect();                   // Disconnect from any saved or active WiFi connections
   wifi_set_opmode(STATION_MODE);       // Set device to client/station mode
@@ -198,6 +217,10 @@ void setup() {
   wifi_promiscuous_enable(true);       // Enable sniffer
 
   Serial.println("Started \\o/");
+  display.setTextColor(BLACK, WHITE); // 'inverted' text
+  display.println("Ready");
+
+
 }
 
 // ===== Loop ===== //
